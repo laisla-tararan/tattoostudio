@@ -36,15 +36,15 @@ CREATE TABLE sessoes (
 );
 
 INSERT INTO usuarios(nome, email, senha) VALUES 
-    ('Admin', 'admin@studio.com', '123456'), 
-    ('Laisla', 'laisla@studio.com', '123456'),
-    ('João Miguel', 'joaomiguel@studio.com', '123456');
+    ('Admin', 'admin@studio.com', '$2b$10$M5PWEmejorzjv6ZaPIn1/.bHDrVPU3nk3BlwWB3kxHkc4aIR.m/eG'), 
+    ('Laisla', 'laisla@studio.com', '$2b$10$M5PWEmejorzjv6ZaPIn1/.bHDrVPU3nk3BlwWB3kxHkc4aIR.m/eG'),
+    ('João Miguel', 'joaomiguel@studio.com', '$2b$10$M5PWEmejorzjv6ZaPIn1/.bHDrVPU3nk3BlwWB3kxHkc4aIR.m/eG');
 
 INSERT INTO clientes(nome, email, cpf, telefone) VALUES 
-    ('Giovani', 'giovani@email.com', '11122233344', '11 11111-1111'), 
-    ('Felipe', 'felipe@email.com', '22233344455', '11 11111-2222'),
-    ('Maria Eduarda', 'mariaeduarda@email.com', '33344455566', '11 11111-3333'),
-    ('João Lucas', 'joaolucas@email.com', '44455566677', '11 11111-4444');
+    ('Giovani', 'giovani@email.com', 'b9332f3140efaf757e4d684975ef3365', '11 11111-1111'), 
+    ('Felipe', 'felipe@email.com', 'be4f639df4cd927594a5e3084b540dc1', '11 11111-2222'),
+    ('Maria Eduarda', 'mariaeduarda@email.com', '65eea67226931d6bc95e431330183923', '11 11111-3333'),
+    ('João Lucas', 'joaolucas@email.com', '13370f44c3b313f35282afe0da469d8b', '11 11111-4444');
 
 INSERT INTO projetos(cliente_id, titulo_tatuagem, descricao) VALUES 
 (1, 'Tribal', 'Colo'),

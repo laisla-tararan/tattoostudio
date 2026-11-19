@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tattoo Studio - Projetos de Tatuagem</title>
+</head>
+<body>
+    <h1>Projetos de Tatuagem</h1>
+    <p><a href="/principal">Voltar</a></p>
+
+    <table border="1">
+        <tr>
+            <th>Título</th>
+            <th>Descrição</th>
+            <th>Cliente</th>
+            <th></th>
+        </tr>
+        {{#projetos}}
+        <tr>
+            <td>{{titulo_tatuagem}}</td>
+            <td>{{descricao}}</td>
+            <td>{{cliente_nome}}</td>
+            <td>{{cliente_id}}</td>
+            <td>
+                <a href="/projetos?editar={{id}}">Editar</a>
+                <form method="POST" action="/projetos/{{id}}">
+                    <input type="hidden" name="_method" value="DELETE">
+                    <button>Excluir</button>
+                </form>
+            </td>
+        </tr>
+        {{/projetos}}
+    </table>
+    <h2>{{#editando}}Editar{{/editando}}{{^editando}}Cadastrar{{/editando}} Projeto</h2>
+    <form action="{{acao}}" method="POST">
+        {{#editando}}
+        <input type="hidden" name="_method" value="PUT" />
+        {{/editando}}
+        <select name="cliente_id" required>
+            <option value="">Selecione o cliente</option>
+            {{#clientes}}
+            <option value="{{id}}" {{selecionado}}>{{nome}}</option>
+            {{/clientes}}
+        </select>
+        <input type="text" name="titulo_tatuagem" placeholder="Título da Tatuagem" value="{{form.titulo_tatuagem}}" required />
+        <input type="text" name="descricao" placeholder="Descrição" value="{{form.descricao}}"/>
+        <button type="submit">{{#editando}}Salvar{{/editando}}{{^editando}}Cadastrar{{/editando}}</button>
+    </form>
+    <p>{{erro}}</p>
+</body>
+</html>
