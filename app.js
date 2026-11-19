@@ -59,14 +59,12 @@ async function excluir(res, tabela, id, volta, motivo) {
     await db.query(`DELETE FROM ${tabela} WHERE id = ?`, [id])
     return res.redirect(volta)
   } catch (erro) {
-    console.error(erro)
-
     if (erro.code === 'ER_ROW_IS_REFERENCED_2') {
       return res.status(409).send(
         `<p>Não foi possível excluir: ${motivo}</p><p><a href="${volta}">Voltar</a></p>`
       )
     }
-
+    console.error(erro)
     return res.status(500).send(`<p>Erro ao excluir.</p><p><a href="${volta}">Voltar</a></p>`)
   }
 }
@@ -75,10 +73,9 @@ async function mostrarProjetos(req, res, erro = null) {
   const [projetos] = await db.query(
     `SELECT projetos.*, clientes.nome AS cliente_nome
      FROM projetos
-     INNER JOIN clientes ON clientes.id = projetos.cliente_id
-     ORDER BY projetos.id`
+     INNER JOIN clientes ON clientes.id = projetos.cliente_id`
   )
-  const [listaClientes] = await db.query('SELECT id, nome FROM clientes ORDER BY nome')
+  const [listaClientes] = await db.query('SELECT id, nome FROM clientes')
   const editar = projetos.find((projeto) => String(projeto.id) === req.query.editar)
 
   const clientes = listaClientes.map((cliente) => ({
@@ -92,13 +89,13 @@ async function mostrarProjetos(req, res, erro = null) {
       clientes,
       erro,
       editando: Boolean(editar),
-      acao: editar ? `/projetos/${editar.id}` : '/projetos',
+      acao: editar ? `/projetos/${editar.id}` : 'projetos',
       form: editar || {}
     })
   )
 }
 
-// Login
+//Login
 app.get('/', (req, res) => res.send(mostrar('login')))
 
 app.post('/login', async (req, res) => {
@@ -138,7 +135,7 @@ app.get('/principal', (req, res) => {
   res.send(mostrar('principal', { nome: req.usuario.nome }))
 })
 
-// Clientes
+//Clientes
 app.get('/clientes', async (req, res) => {
   const busca = req.query.busca || ''
   const [lista] = await db.query('SELECT * FROM clientes WHERE nome LIKE ?', [`%${busca}%`])
@@ -154,7 +151,7 @@ app.get('/clientes', async (req, res) => {
       busca,
       clientes,
       editando: Boolean(editar),
-      acao: editar ? `/clientes/${editar.id}` : '/clientes',
+      acao: editar ? `/clientes/${editar.id}` : 'clientes',
       form: editar || {}
     })
   )
@@ -163,7 +160,7 @@ app.get('/clientes', async (req, res) => {
 app.post('/clientes', async (req, res) => {
   const { nome, cpf, telefone, email } = req.body
   await db.query(
-    'INSERT INTO clientes (nome, cpf, telefone, email) VALUES (?, ?, ?, ?)',
+    'INSERT INTO clientes (nome, cpf, telefone, email) VALUE (?, ?, ?, ?)',
     [nome, criptografar(cpf), telefone, email]
   )
 
@@ -190,18 +187,18 @@ app.delete('/clientes/:id', async (req, res) => {
   )
 })
 
-// Projetos
+//Projetos
 app.get('/projetos', (req, res) => mostrarProjetos(req, res))
 
 app.post('/projetos', async (req, res) => {
   const { cliente_id, titulo_tatuagem, descricao } = req.body
 
-  if (!cliente_id || !titulo_tatuagem) {
-    return mostrarProjetos(req, res, 'Cliente e título da tatuagem são obrigatórios')
+  if (!cliente_id) {
+    return mostrarProjetos(req, res, 'Cliente ID é obrigatório')
   }
 
   await db.query(
-    'INSERT INTO projetos (cliente_id, titulo_tatuagem, descricao) VALUES (?, ?, ?)',
+    'INSERT INTO projetos (cliente_id, titulo_tatuagem, descricao) VALUE (?, ?, ?)',
     [cliente_id, titulo_tatuagem, descricao]
   )
 
@@ -211,8 +208,8 @@ app.post('/projetos', async (req, res) => {
 app.put('/projetos/:id', async (req, res) => {
   const { cliente_id, titulo_tatuagem, descricao } = req.body
 
-  if (!cliente_id || !titulo_tatuagem) {
-    return mostrarProjetos(req, res, 'Cliente e título da tatuagem são obrigatórios')
+  if (!cliente_id) {
+    return mostrarProjetos(req, res, 'Cliente ID é obrigatório')
   }
 
   await db.query(
@@ -225,28 +222,18 @@ app.put('/projetos/:id', async (req, res) => {
 
 app.delete('/projetos/:id', async (req, res) => {
   await excluir(
-    res,
-    'projetos',
-    req.params.id,
-    '/projetos',
-    'O projeto já possui agendamentos.'
+    res, 'projetos', req.params.id, '/projetos', 'O projeto já possui agendamentos.'
   )
 })
 
-// Sessões
+//Sessões
 app.get('/sessoes', async (req, res) => {
-  const [lista] = await db.query(
-    `SELECT sessoes.*, usuarios.nome AS tatuador,
-            projetos.titulo_tatuagem AS projeto,
-            clientes.nome AS cliente
-     FROM sessoes
-     INNER JOIN usuarios ON usuarios.id = sessoes.usuario_id
-     INNER JOIN projetos ON projetos.id = sessoes.projeto_id
-     INNER JOIN clientes ON clientes.id = projetos.cliente_id
-     ORDER BY sessoes.data_agendamento`
-  )
+  const [lista] = await db.query('SELECT sessoes.*, usuarios.nome AS tatuador, projetos.titulo_tatuagem AS projeto, clientes.nome AS cliente FROM sessoes INNER JOIN usuarios ON usuarios.id = sessoes.usuario_id INNER JOIN projetos ON projetos.id = sessoes.projeto_id INNER JOIN clientes ON clientes.id = projetos.cliente_id ORDER BY sessoes.data_agendamento')
   const [projetos] = await db.query(
     'SELECT id, titulo_tatuagem FROM projetos ORDER BY titulo_tatuagem'
+  )
+  const [usuarios] = await db.query(
+    'SELECT id, nome FROM usuarios ORDER BY nome'
   )
 
   const sessoes = lista.map((sessao) => ({
@@ -255,34 +242,25 @@ app.get('/sessoes', async (req, res) => {
     data_input: (sessao.data_agendamento || '').slice(0, 16).replace(' ', 'T')
   }))
 
-  res.send(mostrar('sessoes', { sessoes, projetos }))
+  res.send(mostrar('sessoes', { sessoes, projetos, usuarios }))
 })
 
 app.post('/sessoes', async (req, res) => {
-  const { projeto_id, data_agendamento } = req.body
-
-  if (!projeto_id || !data_agendamento) {
-    return res.status(400).send('Projeto e data de agendamento são obrigatórios.')
-  }
+  const { usuario_id, projeto_id, data_agendamento } = req.body
 
   await db.query(
     'INSERT INTO sessoes (usuario_id, projeto_id, data_agendamento) VALUES (?, ?, ?)',
-    [req.usuario.id, projeto_id, data_agendamento]
+    [usuario_id, projeto_id, data_agendamento]
   )
 
   res.redirect('/sessoes')
+
 })
 
 app.put('/sessoes/:id', async (req, res) => {
-  const { data_agendamento } = req.body
-
-  if (!data_agendamento) {
-    return res.status(400).send('A data de agendamento é obrigatória.')
-  }
-
   await db.query(
     'UPDATE sessoes SET data_agendamento = ? WHERE id = ?',
-    [data_agendamento.replace('T', ' '), req.params.id]
+    [req.body.data_agendamento.replace(' ', 'T'), req.params.id]
   )
 
   res.redirect('/sessoes')
@@ -290,11 +268,7 @@ app.put('/sessoes/:id', async (req, res) => {
 
 app.delete('/sessoes/:id', async (req, res) => {
   await excluir(
-    res,
-    'sessoes',
-    req.params.id,
-    '/sessoes',
-    'A sessão não pode ser excluída.'
+    res, 'sessoes', req.params.id, '/sessoes', 'A sessão não pode ser excluída.'
   )
 })
 
