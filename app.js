@@ -32,7 +32,7 @@ const db = mysql.createPool({
 
 // Funções auxiliares
 function mostrar(nome, dados = {}) {
-  const arquivo = path.join(__dirname, 'paginas', `${nome}.html`)
+  const arquivo = path.join(__dirname, 'sistema', `${nome}.html`)
   return Mustache.render(fs.readFileSync(arquivo, 'utf8'), dados)
 }
 
@@ -57,21 +57,28 @@ function descriptografar(texto) {
 async function excluir(res, tabela, id, volta, motivo) {
   try {
     await db.query(`DELETE FROM ${tabela} WHERE id = ?`, [id])
-    res.redirect(volta)
+    return res.redirect(volta)
   } catch (erro) {
+    console.error(erro)
+
     if (erro.code === 'ER_ROW_IS_REFERENCED_2') {
-      res.status(409).send(
+      return res.status(409).send(
         `<p>Não foi possível excluir: ${motivo}</p><p><a href="${volta}">Voltar</a></p>`
       )
     }
-    console.error(erro)
-    res.status(500).send(`<p>Erro ao excluir.</p><p><a href="${volta}">Voltar</a></p>`)
+
+    return res.status(500).send(`<p>Erro ao excluir.</p><p><a href="${volta}">Voltar</a></p>`)
   }
 }
 
 async function mostrarProjetos(req, res, erro = null) {
-  const [projetos] = await db.query('SELECT * FROM projetos')
-  const [listaClientes] = await db.query('SELECT id, nome FROM clientes')
+  const [projetos] = await db.query(
+    `SELECT projetos.*, clientes.nome AS cliente_nome
+     FROM projetos
+     INNER JOIN clientes ON clientes.id = projetos.cliente_id
+     ORDER BY projetos.id`
+  )
+  const [listaClientes] = await db.query('SELECT id, nome FROM clientes ORDER BY nome')
   const editar = projetos.find((projeto) => String(projeto.id) === req.query.editar)
 
   const clientes = listaClientes.map((cliente) => ({
@@ -85,13 +92,13 @@ async function mostrarProjetos(req, res, erro = null) {
       clientes,
       erro,
       editando: Boolean(editar),
-      acao: editar ? `/projetos/${editar.id}` : 'projetos',
+      acao: editar ? `/projetos/${editar.id}` : '/projetos',
       form: editar || {}
     })
   )
 }
 
-//Login
+// Login
 app.get('/', (req, res) => res.send(mostrar('login')))
 
 app.post('/login', async (req, res) => {
@@ -131,7 +138,7 @@ app.get('/principal', (req, res) => {
   res.send(mostrar('principal', { nome: req.usuario.nome }))
 })
 
-//Clientes
+// Clientes
 app.get('/clientes', async (req, res) => {
   const busca = req.query.busca || ''
   const [lista] = await db.query('SELECT * FROM clientes WHERE nome LIKE ?', [`%${busca}%`])
@@ -147,7 +154,7 @@ app.get('/clientes', async (req, res) => {
       busca,
       clientes,
       editando: Boolean(editar),
-      acao: editar ? `/clientes/${editar.id}` : 'clientes',
+      acao: editar ? `/clientes/${editar.id}` : '/clientes',
       form: editar || {}
     })
   )
@@ -156,7 +163,7 @@ app.get('/clientes', async (req, res) => {
 app.post('/clientes', async (req, res) => {
   const { nome, cpf, telefone, email } = req.body
   await db.query(
-    'INSERT INTO clientes (nome, cpf, telefone, email) VALUE (?, ?, ?, ?)',
+    'INSERT INTO clientes (nome, cpf, telefone, email) VALUES (?, ?, ?, ?)',
     [nome, criptografar(cpf), telefone, email]
   )
 
@@ -183,34 +190,34 @@ app.delete('/clientes/:id', async (req, res) => {
   )
 })
 
-//Projetos
+// Projetos
 app.get('/projetos', (req, res) => mostrarProjetos(req, res))
 
 app.post('/projetos', async (req, res) => {
-  const { cliente_id, descricao, valor, data_inicio, data_fim } = req.body
+  const { cliente_id, titulo_tatuagem, descricao } = req.body
 
-  if (!cliente_id) {
-    return mostrarProjetos(req, res, 'Cliente ID é obrigatório')
+  if (!cliente_id || !titulo_tatuagem) {
+    return mostrarProjetos(req, res, 'Cliente e título da tatuagem são obrigatórios')
   }
 
   await db.query(
-    'INSERT INTO projetos (cliente_id, descricao, data_inicio, data_fim) VALUE (?, ?, ?, ?)',
-    [cliente_id, descricao, data_inicio, data_fim]
+    'INSERT INTO projetos (cliente_id, titulo_tatuagem, descricao) VALUES (?, ?, ?)',
+    [cliente_id, titulo_tatuagem, descricao]
   )
 
   res.redirect('/projetos')
 })
 
 app.put('/projetos/:id', async (req, res) => {
-  const { cliente_id, descricao, valor, data_inicio, data_fim } = req.body
+  const { cliente_id, titulo_tatuagem, descricao } = req.body
 
-  if (!cliente_id) {
-    return mostrarProjetos(req, res, 'Cliente ID é obrigatório')
+  if (!cliente_id || !titulo_tatuagem) {
+    return mostrarProjetos(req, res, 'Cliente e título da tatuagem são obrigatórios')
   }
 
   await db.query(
-    'UPDATE projetos SET cliente_id = ?, descricao = ?, valor = ?, data_inicio = ?, data_fim = ? WHERE id = ?',
-    [cliente_id, descricao, valor, data_inicio, data_fim, req.params.id]
+    'UPDATE projetos SET cliente_id = ?, titulo_tatuagem = ?, descricao = ? WHERE id = ?',
+    [cliente_id, titulo_tatuagem, descricao, req.params.id]
   )
 
   res.redirect('/projetos')
@@ -218,13 +225,26 @@ app.put('/projetos/:id', async (req, res) => {
 
 app.delete('/projetos/:id', async (req, res) => {
   await excluir(
-    res, 'projetos', req.params.id, '/projetos', 'O projeto já possui agendamentos.'
+    res,
+    'projetos',
+    req.params.id,
+    '/projetos',
+    'O projeto já possui agendamentos.'
   )
 })
 
-//Sessões
+// Sessões
 app.get('/sessoes', async (req, res) => {
-  const [lista] = await db.query('SELECT sessoes.*, usuarios.nome AS tatuador, projetos.titulo_tatuagem AS projeto, clientes.nome AS cliente FROM sessoes INNER JOIN usuarios ON usuarios.id = sessoes.usuario_id INNER JOIN projetos ON projetos.id = sessoes.projeto_id INNER JOIN clientes ON clientes.id = projetos.cliente_id ORDER BY sessoes.data_agendamento')
+  const [lista] = await db.query(
+    `SELECT sessoes.*, usuarios.nome AS tatuador,
+            projetos.titulo_tatuagem AS projeto,
+            clientes.nome AS cliente
+     FROM sessoes
+     INNER JOIN usuarios ON usuarios.id = sessoes.usuario_id
+     INNER JOIN projetos ON projetos.id = sessoes.projeto_id
+     INNER JOIN clientes ON clientes.id = projetos.cliente_id
+     ORDER BY sessoes.data_agendamento`
+  )
   const [projetos] = await db.query(
     'SELECT id, titulo_tatuagem FROM projetos ORDER BY titulo_tatuagem'
   )
@@ -241,19 +261,28 @@ app.get('/sessoes', async (req, res) => {
 app.post('/sessoes', async (req, res) => {
   const { projeto_id, data_agendamento } = req.body
 
+  if (!projeto_id || !data_agendamento) {
+    return res.status(400).send('Projeto e data de agendamento são obrigatórios.')
+  }
+
   await db.query(
     'INSERT INTO sessoes (usuario_id, projeto_id, data_agendamento) VALUES (?, ?, ?)',
     [req.usuario.id, projeto_id, data_agendamento]
   )
 
   res.redirect('/sessoes')
-
 })
 
 app.put('/sessoes/:id', async (req, res) => {
+  const { data_agendamento } = req.body
+
+  if (!data_agendamento) {
+    return res.status(400).send('A data de agendamento é obrigatória.')
+  }
+
   await db.query(
     'UPDATE sessoes SET data_agendamento = ? WHERE id = ?',
-    [req.body.data_agendamento.replace(' ', 'T'), req.params.id]
+    [data_agendamento.replace('T', ' '), req.params.id]
   )
 
   res.redirect('/sessoes')
@@ -261,7 +290,11 @@ app.put('/sessoes/:id', async (req, res) => {
 
 app.delete('/sessoes/:id', async (req, res) => {
   await excluir(
-    res, 'sessoes', req.params.id, '/sessoes', 'A sessão não pode ser excluída.'
+    res,
+    'sessoes',
+    req.params.id,
+    '/sessoes',
+    'A sessão não pode ser excluída.'
   )
 })
 

@@ -47,6 +47,12 @@
             <option value="{{id}}">{{titulo_tatuagem}}</option>
             {{/projetos}}
         </select>
+        <select name="usuario_id" required>
+            <option value="">Selecione o Tatuador</option>
+            {{#usuarios}}
+            <option value="{{id}}">{{nome}}</option>
+            {{/usuarios}}
+        </select>
         <input type="datetime-local" name="data_agendamento" required />
         <button type="submit">Cadastrar</button>
     </form>
